@@ -13,3 +13,7 @@ A golang based app to download podcasts locally as a backup.
     cd /where/you/want/to/download/podcasts/
     # edit config.json
     ./castdown
+
+## Building for all platforms
+
+The script `buildall.sh` will build castdown for multiple platforms and place the binaries in the `dist/` directory
