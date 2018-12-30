@@ -1,0 +1,9 @@
+{
+  "dataDir": "podcasts",
+  "podcasts": [
+    {
+      "name": "twit",
+      "url": "http://feeds.twit.tv/twit.xml"
+    }
+  ]
+}
