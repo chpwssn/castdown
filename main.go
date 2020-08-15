@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -85,6 +86,8 @@ func getItem(podcast string, item *gofeed.Item, config *Config) bool {
 			} else {
 				fmt.Println("exists.")
 			}
+			fmt.Println("Setting time to", item.PublishedParsed)
+			SetDates(path, *item.PublishedParsed)
 		}
 	}
 	return true
@@ -121,5 +124,10 @@ func DownloadFile(filepath string, url string) error {
 		return err
 	}
 
+	return nil
+}
+
+func SetDates(filepath string, date time.Time) error {
+	os.Chtimes(filepath, date, date)
 	return nil
 }
