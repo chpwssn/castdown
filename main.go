@@ -86,8 +86,12 @@ func getItem(podcast string, item *gofeed.Item, config *Config) bool {
 			} else {
 				fmt.Println("exists.")
 			}
-			fmt.Println("Setting time to", item.PublishedParsed)
-			SetDates(path, *item.PublishedParsed)
+			if item.PublishedParsed != nil {
+				fmt.Println("Setting time to", item.PublishedParsed)
+				SetDates(path, *item.PublishedParsed)
+			} else {
+				fmt.Println("Unable to parse publish date", item.Published)
+			}
 		}
 	}
 	return true
