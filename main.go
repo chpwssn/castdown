@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/md5"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,7 +30,16 @@ type Podcast struct {
 }
 
 func main() {
-	configFile, err := os.Open("./config.json")
+	var configFilePath string
+	flag.StringVar(&configFilePath, "f", "./config.json", "Specify config file. Default is ./config.json")
+
+	flag.Usage = func() {
+		fmt.Printf("Usage of our Program: \n")
+		fmt.Printf("./go-project -n username\n")
+		// flag.PrintDefaults()  // prints default usage
+	}
+	flag.Parse()
+	configFile, err := os.Open(configFilePath)
 	if err != nil {
 		fmt.Println("Error: no config.json supplied")
 		fmt.Println(err)
@@ -47,7 +57,10 @@ func main() {
 
 func processFeed(podcastName string, feedURL string, config *Config) {
 	fp := gofeed.NewParser()
-	feed, _ := fp.ParseURL(feedURL)
+	feed, err := fp.ParseURL(feedURL)
+	if err != nil {
+		return
+	}
 	fmt.Println(feed.Title)
 	for _, element := range feed.Items {
 		getItem(podcastName, element, config)
@@ -67,9 +80,13 @@ func getItem(podcast string, item *gofeed.Item, config *Config) bool {
 	for _, enclosure := range item.Enclosures {
 		if strings.Contains(enclosure.Type, "audio") {
 			var path string
+			var summaryPath string
+			var descriptionPath string
 			switch enclosure.Type {
 			case "audio/mpeg":
 				path = filepath.Join(podcastDir, fmt.Sprintf("%s.mp3", safeTitle))
+				summaryPath = filepath.Join(podcastDir, fmt.Sprintf("%s_itunes_summary.html", safeTitle))
+				descriptionPath = filepath.Join(podcastDir, fmt.Sprintf("%s_description.html", safeTitle))
 				break
 			default:
 				fmt.Println("I don't know what to do with type", enclosure.Type, enclosure.URL)
@@ -86,9 +103,16 @@ func getItem(podcast string, item *gofeed.Item, config *Config) bool {
 			} else {
 				fmt.Println("exists.")
 			}
+			if item.ITunesExt != nil {
+				fmt.Println("Saving summary")
+				WriteFile(summaryPath, (*item.ITunesExt).Summary)
+			}
+			WriteFile(descriptionPath, item.Description)
 			if item.PublishedParsed != nil {
 				fmt.Println("Setting time to", item.PublishedParsed)
 				SetDates(path, *item.PublishedParsed)
+				SetDates(summaryPath, *item.PublishedParsed)
+				SetDates(descriptionPath, *item.PublishedParsed)
 			} else {
 				fmt.Println("Unable to parse publish date", item.Published)
 			}
@@ -102,6 +126,23 @@ func md5Str(data string) string {
 	dataBytes := []byte(data)
 	md5.Write(dataBytes)
 	return fmt.Sprintf("%x", md5.Sum(nil))
+}
+
+func WriteFile(filepath string, body string) error {
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Write the body to file
+	_, err = io.WriteString(out, body)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // DownloadFile will download a url to a local file. It's efficient because it will
