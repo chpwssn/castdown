@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mmcdole/gofeed"
@@ -50,12 +51,19 @@ func main() {
 	var config Config
 	json.Unmarshal([]byte(byteValue), &config)
 
+	var wg sync.WaitGroup
+
 	for _, podcast := range config.Podcasts {
-		processFeed(podcast.Name, podcast.URL, &config)
+		wg.Add(1)
+		go processFeed(podcast.Name, podcast.URL, &config, &wg)
 	}
+
+	wg.Wait()
 }
 
-func processFeed(podcastName string, feedURL string, config *Config) {
+func processFeed(podcastName string, feedURL string, config *Config, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	fp := gofeed.NewParser()
 	feed, err := fp.ParseURL(feedURL)
 	if err != nil {
@@ -66,6 +74,7 @@ func processFeed(podcastName string, feedURL string, config *Config) {
 		getItem(podcastName, element, config)
 	}
 }
+
 func getItem(podcast string, item *gofeed.Item, config *Config) bool {
 	savable := regexp.MustCompile(`[^a-zA-Z0-9]+`)
 	safeCast := savable.ReplaceAllString(podcast, "_")
@@ -80,13 +89,13 @@ func getItem(podcast string, item *gofeed.Item, config *Config) bool {
 	for _, enclosure := range item.Enclosures {
 		if strings.Contains(enclosure.Type, "audio") {
 			var path string
-			var summaryPath string
 			var descriptionPath string
+			var metaDataPath string
 			switch enclosure.Type {
 			case "audio/mpeg":
 				path = filepath.Join(podcastDir, fmt.Sprintf("%s.mp3", safeTitle))
-				summaryPath = filepath.Join(podcastDir, fmt.Sprintf("%s_itunes_summary.html", safeTitle))
 				descriptionPath = filepath.Join(podcastDir, fmt.Sprintf("%s_description.html", safeTitle))
+				metaDataPath = filepath.Join(podcastDir, fmt.Sprintf("%s.json", safeTitle))
 				break
 			default:
 				fmt.Println("I don't know what to do with type", enclosure.Type, enclosure.URL)
@@ -103,15 +112,21 @@ func getItem(podcast string, item *gofeed.Item, config *Config) bool {
 			} else {
 				fmt.Println("exists.")
 			}
-			if item.ITunesExt != nil {
-				fmt.Println("Saving summary")
-				WriteFile(summaryPath, (*item.ITunesExt).Summary)
-			}
 			WriteFile(descriptionPath, item.Description)
+			_, err = os.Stat(metaDataPath)
+			if err != nil {
+				metaData, err := json.Marshal(item)
+				if err == nil {
+					WriteFile(metaDataPath, string(metaData))
+					fmt.Println("Writing metadata")
+					SetDates(metaDataPath, *item.PublishedParsed)
+				} else {
+					fmt.Println("Could not marshal meta data", err)
+				}
+			}
 			if item.PublishedParsed != nil {
 				fmt.Println("Setting time to", item.PublishedParsed)
 				SetDates(path, *item.PublishedParsed)
-				SetDates(summaryPath, *item.PublishedParsed)
 				SetDates(descriptionPath, *item.PublishedParsed)
 			} else {
 				fmt.Println("Unable to parse publish date", item.Published)
