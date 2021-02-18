@@ -80,11 +80,13 @@ func getItem(podcast string, item *gofeed.Item, config *Config) bool {
 	for _, enclosure := range item.Enclosures {
 		if strings.Contains(enclosure.Type, "audio") {
 			var path string
+			var oggPath string
 			var summaryPath string
 			var descriptionPath string
 			switch enclosure.Type {
 			case "audio/mpeg":
 				path = filepath.Join(podcastDir, fmt.Sprintf("%s.mp3", safeTitle))
+				oggPath = filepath.Join(podcastDir, fmt.Sprintf("%s.ogg", safeTitle))
 				summaryPath = filepath.Join(podcastDir, fmt.Sprintf("%s_itunes_summary.html", safeTitle))
 				descriptionPath = filepath.Join(podcastDir, fmt.Sprintf("%s_description.html", safeTitle))
 				break
@@ -111,6 +113,7 @@ func getItem(podcast string, item *gofeed.Item, config *Config) bool {
 			if item.PublishedParsed != nil {
 				fmt.Println("Setting time to", item.PublishedParsed)
 				SetDates(path, *item.PublishedParsed)
+				SetDates(oggPath, *item.PublishedParsed)
 				SetDates(summaryPath, *item.PublishedParsed)
 				SetDates(descriptionPath, *item.PublishedParsed)
 			} else {
