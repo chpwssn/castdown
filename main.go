@@ -83,12 +83,14 @@ func getItem(podcast string, item *gofeed.Item, config *Config) bool {
 			var oggPath string
 			var summaryPath string
 			var descriptionPath string
+			var metaDataPath string
 			switch enclosure.Type {
 			case "audio/mpeg":
 				path = filepath.Join(podcastDir, fmt.Sprintf("%s.mp3", safeTitle))
 				oggPath = filepath.Join(podcastDir, fmt.Sprintf("%s.ogg", safeTitle))
 				summaryPath = filepath.Join(podcastDir, fmt.Sprintf("%s_itunes_summary.html", safeTitle))
 				descriptionPath = filepath.Join(podcastDir, fmt.Sprintf("%s_description.html", safeTitle))
+				metaDataPath = filepath.Join(podcastDir, fmt.Sprintf("%s.json", safeTitle))
 				break
 			default:
 				fmt.Println("I don't know what to do with type", enclosure.Type, enclosure.URL)
@@ -110,6 +112,17 @@ func getItem(podcast string, item *gofeed.Item, config *Config) bool {
 				WriteFile(summaryPath, (*item.ITunesExt).Summary)
 			}
 			WriteFile(descriptionPath, item.Description)
+			_, err = os.Stat(metaDataPath)
+			if err != nil {
+				metaData, err := json.Marshal(item)
+				if err == nil {
+					WriteFile(metaDataPath, string(metaData))
+					fmt.Println("Writing metadata")
+					SetDates(metaDataPath, *item.PublishedParsed)
+				} else {
+					fmt.Println("Could not marshal meta data", err)
+				}
+			}
 			if item.PublishedParsed != nil {
 				fmt.Println("Setting time to", item.PublishedParsed)
 				SetDates(path, *item.PublishedParsed)
